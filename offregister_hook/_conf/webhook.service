@@ -5,7 +5,7 @@ After=syslog.target network.target nss-lookup.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/webhook %(ARGS)s
+ExecStart=%(CMD)s %(ARGS)s
 #Restart=always
 #RestartSec=5
 
