@@ -1,0 +1,13 @@
+[Unit]
+Description=Small server for creating HTTP endpoints (hooks)
+Documentation=https://github.com/adnanh/webhook
+After=syslog.target network.target nss-lookup.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/webhook %(ARGS)s
+#Restart=always
+#RestartSec=5
+
+[Install]
+WantedBy=default.target
