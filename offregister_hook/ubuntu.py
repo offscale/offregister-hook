@@ -1,14 +1,13 @@
 import sys
 from cStringIO import StringIO
 from functools import partial
-from os import path, remove
-from tempfile import mkstemp
+from os import path
 
-from fabric.contrib.files import upload_template, exists
-from fabric.operations import sudo, put, run, get
+from fabric.contrib.files import upload_template
+from fabric.operations import sudo, put, run
 from nginx_parse_emit.emit import api_proxy_block
-from nginx_parse_emit.utils import upsert_by_location
-from nginxparser import load, dump, loads, dumps
+from nginx_parse_emit.utils import upsert_by_location, upsert_upload
+from nginxparser import dump, loads
 from offregister_fab_utils.apt import apt_depends
 from offregister_fab_utils.fs import cmd_avail
 from offregister_fab_utils.ubuntu.systemd import restart_systemd
@@ -65,25 +64,14 @@ def install_configure0(*args, **kwargs):
 
 
 def configure_nginx1(*args, **kwargs):
-    nginx_conf = kwargs.get('NGINX_CONF', 'default')
-    conf_name = '/etc/nginx/sites-enabled/{nginx_conf}'.format(nginx_conf=nginx_conf)
-    if not conf_name.endswith('.conf') and not exists(conf_name):
-        conf_name += '.conf'
-
-    # cStringIO.StringIO, StringIO.StringIO, TemporaryFile, SpooledTemporaryFile all failed :(
-    tempfile = mkstemp(nginx_conf)[1]
-    get(remote_path=conf_name, local_path=tempfile, use_sudo=True)
-    with open(tempfile, 'rt') as f:
-        conf = load(f)
-    remove(tempfile)
-    new_conf = upsert_by_location('/hooks', conf,
-                                  loads(api_proxy_block('/hooks', '{protocol}://{host}:{port}/{urlprefix}'.format(
-                                      protocol='https' if kwargs.get('HOOK_SECURE') else 'http',
-                                      host=kwargs.get('HOOK_IP', '0.0.0.0'),
-                                      port=kwargs.get('HOOK_PORT', 9000),
-                                      urlprefix=kwargs.get('HOOK_URLPREFIX', 'hooks')
-                                  ))))
-    sio = StringIO()
-    sio.write(dumps(new_conf))
-    put(sio, conf_name, use_sudo=True)
+    new_conf = lambda orig_conf: upsert_by_location(
+        '/hooks', orig_conf,
+        loads(api_proxy_block('/hooks', '{protocol}://{host}:{port}/{urlprefix}'.format(
+            protocol='https' if kwargs.get('HOOK_SECURE') else 'http',
+            host=kwargs.get('HOOK_IP', '0.0.0.0'),
+            port=kwargs.get('HOOK_PORT', 9000),
+            urlprefix=kwargs.get('HOOK_URLPREFIX', 'hooks')
+        )))
+    )
+    upsert_upload(new_conf, name='hook')
     return restart_systemd('nginx')
