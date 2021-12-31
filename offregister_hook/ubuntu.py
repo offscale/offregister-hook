@@ -6,11 +6,12 @@ if version[0] == "2":
 
 else:
     from io import StringIO
+
 from functools import partial
 from os import path
 
 from fabric.contrib.files import upload_template
-from fabric.operations import sudo, put, run
+from fabric.operations import put, run, sudo
 from nginx_parse_emit.emit import api_proxy_block
 from nginx_parse_emit.utils import upsert_by_location, upsert_upload
 from nginxparser import dump, loads
