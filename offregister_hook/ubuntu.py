@@ -10,8 +10,6 @@ else:
 from functools import partial
 from os import path
 
-from fabric.contrib.files import upload_template
-from fabric.operations import put, run, sudo
 from nginx_parse_emit.emit import api_proxy_block
 from nginx_parse_emit.utils import upsert_by_location, upsert_upload
 from nginxparser import dump, loads
@@ -31,10 +29,10 @@ hook_dir = partial(
 def install_configure0(*args, **kwargs):
     apt_install = False
     if apt_install:
-        apt_depends("webhook")
-    elif not cmd_avail("webhook"):
+        apt_depends(c, "webhook")
+    elif not cmd_avail(c, "webhook"):
         go.install0()
-        run("go get github.com/adnanh/webhook")
+        c.run("go get github.com/adnanh/webhook")
 
     if (
         kwargs.get("HOOK_PORT") == 443
@@ -48,13 +46,13 @@ def install_configure0(*args, **kwargs):
     if not kwargs.get("HOOK_HOOKS"):
         kwargs["HOOK_HOOKS"] = "/etc/webhook.json"
     else:
-        sudo('mkdir -p "${' + kwargs["HOOK_HOOKS"] + '##*/}"', shell_escape=False)
+        c.sudo('mkdir -p "${' + kwargs["HOOK_HOOKS"] + '##*/}"', shell_escape=False)
 
     sio = StringIO()
     dump(kwargs["HOOK_HOOKS_JSON"], sio)
     tmp = "{}.tmp".format(kwargs["HOOK_HOOKS"])
-    put(sio, tmp, use_sudo=True)
-    sudo(
+    c.put(sio, tmp, use_sudo=True)
+    c.sudo(
         "cat {tmp} | envsubst > {hooks} && rm {tmp}".format(
             tmp=tmp, hooks=kwargs["HOOK_HOOKS"]
         )
@@ -65,13 +63,16 @@ def install_configure0(*args, **kwargs):
     elif not kwargs["HOOK_NOPANIC"]:
         del kwargs["HOOK_NOPANIC"]
 
-    upload_template(
+    upload_template_fmt(
+        c,
         hook_dir("webhook.service"),
         "/lib/systemd/system/",
         context={
             "CMD": "/usr/bin/webhook"
             if apt_install
-            else run('echo "$GOPATH/bin/webhook"', quiet=True, shell_escape=False),
+            else c.run(
+                'echo "$GOPATH/bin/webhook"', hide=True, shell_escape=False
+            ).stdout.rstrip(),
             "ARGS": " ".join(
                 "-{cli_arg} '{cli_val}'".format(
                     cli_arg=cli_arg, cli_val=kwargs["HOOK_{}".format(cli_arg.upper())]
