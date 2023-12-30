@@ -26,7 +26,7 @@ hook_dir = partial(
 )
 
 
-def install_configure0(*args, **kwargs):
+def install_configure0(c, *args, **kwargs):
     apt_install = False
     if apt_install:
         apt_depends(c, "webhook")
@@ -100,7 +100,7 @@ def install_configure0(*args, **kwargs):
     return restart_systemd("webhook")
 
 
-def configure_nginx1(*args, **kwargs):
+def configure_nginx1(c, *args, **kwargs):
     new_conf = lambda orig_conf: upsert_by_location(
         "/hooks",
         orig_conf,
